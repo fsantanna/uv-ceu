@@ -4,20 +4,7 @@ CEU_ARGS ?=
 CEU_SRC  ?= samples/tcp-01.ceu
 
 all:
-	ceu --pre --pre-args="-I$(CEU_DIR)/include -I./include -I./samples/ $(CEU_ARGS)" \
-	          --pre-input=$(CEU_SRC)                             \
-	    --ceu --ceu-features-lua=true --ceu-features-thread=true \
-	          --ceu-features-trace=true --ceu-features-exception=true \
-	          --ceu-features-dynamic=true --ceu-features-pool=true \
-	          --ceu-features-os=true --ceu-features-async=true \
-	          --ceu-err-unused=pass --ceu-err-uninitialized=pass \
-	    --env --env-types=$(CEU_DIR)/env/types.h                 \
-	          --env-threads=./env/threads.h                      \
-	          --env-main=$(CEU_DIR)/env/main.c                   \
-	          --env-output=/tmp/x.c                   \
-	    --cc --cc-args="-lm -llua5.3 -luv $(CC_ARGS)"            \
-	         --cc-output=/tmp/$$(basename $(CEU_SRC) .ceu);
-	/tmp/$$(basename $(CEU_SRC) .ceu);
+	ceu $(SRC).ceu -cc "-g -lm -luv -include uv.h"
 
 LUA_FLAGS = -llua5.3
 

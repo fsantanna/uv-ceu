@@ -1,0 +1,111 @@
+```:pre
+void ceu_uv_fs_open_cb (uv_fs_t* req) {
+    CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+    CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+    CEU_Value fd = { CEU_VALUE_NUMBER, { .Number=req->result } };
+    CEU_Value* args[] = { &fd };
+    assert(CEU_RET_THROW != frame->proto->f(frame, NULL, 1, args));
+}
+
+void ceu_uv_fs_read_cb (uv_fs_t* req) {
+    CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+    CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+    CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
+    CEU_Value* args[] = { &n };
+    assert(CEU_RET_THROW != frame->proto->f(frame, NULL, 1, args));
+}
+
+void ceu_uv_fs_write_cb (uv_fs_t* req) {
+    CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+    CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+    CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
+    CEU_Value* args[] = { &n };
+    assert(CEU_RET_THROW != frame->proto->f(frame, NULL, 1, args));
+}
+```
+
+var loop = `:pointer uv_default_loop()`
+defer {
+    `uv_loop_close($loop.Pointer);`
+}
+
+task T () {
+    var req = `:pointer malloc(sizeof(uv_fs_t))`
+    `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
+    defer {
+        ```
+        uv_fs_req_cleanup($req.Pointer);
+        free($req.Pointer);
+        ```
+    }
+
+    var fd = do {
+        assert(0 == `:number uv_fs_open (
+            $loop.Pointer,
+            $req.Pointer,
+            "ceu/01-fs-cat.txt",
+            O_RDONLY, 0,
+            ceu_uv_fs_open_cb
+        )`)
+        yield()
+    }
+    assert(fd >= 0)
+    defer {
+        ``` // synchronous
+        uv_fs_t req;
+        uv_fs_close($loop.Pointer, &req, $fd.Number, NULL);
+        ```
+    }
+    println(:open, fd)
+
+    var iov = `:pointer malloc(sizeof(uv_buf_t))`
+    defer {
+        `free($iov.Pointer);`
+    }
+    var buf = #[]
+    var i = 0
+    while #buf < 1024 {
+        set buf[+] = '\0'
+    }
+    `*((uv_buf_t*)ceu_mem->iov.Pointer) = uv_buf_init($buf.Dyn->Ncast.Vector.buf,1024);`
+
+    until {
+        var n1 = do {
+            assert(0 == `uv_fs_read (
+                $loop.Pointer,
+                $req.Pointer,
+                $fd.Number,
+                $iov.Pointer,
+                1, -1,
+                ceu_uv_fs_read_cb
+            );`)
+            yield()
+        }
+        assert(n1 >= 0)
+        println(:read, `:number ((uv_buf_t*)$iov.Pointer)->len`, n1)
+
+        `((uv_buf_t*)$iov.Pointer)->len = $n1.Number;`
+        if n1 > 0 {
+            set buf[n1] = '\0'
+        }
+
+        var n2 = do {
+            assert(0 == `uv_fs_write (
+                $loop.Pointer,
+                $req.Pointer,
+                1,  // stdout
+                $iov.Pointer,
+                1, -1,
+                ceu_uv_fs_write_cb
+            );`)
+            yield()
+        }
+        assert(n1 == n2)
+
+        `((uv_buf_t*)$iov.Pointer)->len = 1024;`
+        n1 == 0
+    }
+}
+
+spawn T()
+`uv_run($loop.Pointer, UV_RUN_DEFAULT);`
