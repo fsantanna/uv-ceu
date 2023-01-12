@@ -110,7 +110,10 @@ task UV_fs_read (filename, prev, next) {
 println(:n2, n2)
         assert(n2 >= 0)
         if n2 > 0 {
-            `$buf.Dyn->Ncast.Vector.buf[(int)$n2.Number] = '\0';`
+            ```
+            $buf.Dyn->Ncast.Vector.its = $n2.Number;
+            $buf.Dyn->Ncast.Vector.buf[(int)$n2.Number] = '\0';
+            ```
 println(:read, n2, #buf)
 ;;println(:read, n2, #buf, buf)
 ;;`fflush(stdout);`
@@ -143,7 +146,6 @@ task UV_fs_write (filename, prev, next) {
 
     var buf = yield()
     while buf {
-println(:write, #buf)
 ;;println(:write, #buf, buf)
 ;;`fflush(stdout);`
         var iov = `:pointer malloc(sizeof(uv_buf_t))`
@@ -151,6 +153,7 @@ println(:write, #buf)
             `free($iov.Pointer);`
         }
         var len = #buf
+println(:write, #buf, `:number $len.Number`)
         `*((uv_buf_t*)ceu_mem->iov.Pointer) = uv_buf_init($buf.Dyn->Ncast.Vector.buf,$len.Number);`
 
         var n1 = `:number uv_fs_write (
