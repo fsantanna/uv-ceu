@@ -1,0 +1,11 @@
+^["uv.ceu"]
+
+spawn UV_Loop()
+
+var reader = coroutine(UV_FS_Read)
+var writer = coroutine(UV_FS_Write)
+
+resume reader("ceu/01-fs-cat.txt", nil, writer)
+resume writer("ceu/03-fs-cat.out", reader, nil)
+
+;;spawn UV_FS_Read("ceu/01-fs-cat.txt") >|> spawn UV_FS_Write("ceu/03-fs-cat.out")

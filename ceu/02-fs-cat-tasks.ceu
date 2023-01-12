@@ -132,7 +132,7 @@ println(:cmd, cmd)
 task UV_fs_write (filename, prev, next) {
     assert(prev and (not next))
 
-    var open = spawn UV_fs_open(filename, `:number O_WRONLY|O_CREAT`, task)
+    var open = spawn UV_fs_open(filename, `:number O_WRONLY|O_CREAT|O_TRUNC`, task)
     var fd = yield()
 
     var req = `:pointer malloc(sizeof(uv_fs_t))`
@@ -184,6 +184,6 @@ var reader = coroutine(UV_fs_read)
 var writer = coroutine(UV_fs_write)
 
 resume reader("ceu/01-fs-cat.txt", nil, writer)
-resume writer("ceu/01-fs-cat.out", reader, nil)
+resume writer("ceu/02-fs-cat.out", reader, nil)
 
 `uv_run($loop.Pointer, UV_RUN_DEFAULT);`
