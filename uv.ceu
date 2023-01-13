@@ -32,9 +32,16 @@ do {
     ```
 }
 
+enum {
+    :O.RDONLY = `O_RDONLY`,
+    :O.WRONLY = `O_WRONLY`,
+    :O.CREAT  = `O_CREAT`,
+    :O.TRUNC  = `O_TRUNC`,
+}
+
 var loop = `:pointer uv_default_loop()`
 
-task UV_Loop () {
+task UV-Loop () {
     defer {
         `uv_run($loop.Pointer, UV_RUN_DEFAULT);`
         `uv_loop_close($loop.Pointer);`
@@ -42,7 +49,7 @@ task UV_Loop () {
     await false
 }
 
-task UV_FS_Open (filename, mode, next) {
+task UV-FS-Open (filename, mode, next) {
     var req = `:pointer malloc(sizeof(uv_fs_t))`
     `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
     defer {
@@ -57,7 +64,7 @@ task UV_FS_Open (filename, mode, next) {
             $loop.Pointer,
             $req.Pointer,
             $filename.Dyn->Ncast.Vector.buf,
-            $mode.Number,
+            $mode.Tag,
             S_IRUSR | S_IWUSR,
             ceu_uv_fs_open_cb
         )`)
@@ -75,7 +82,7 @@ task UV_FS_Open (filename, mode, next) {
     yield()
 }
 
-task UV_FS_Read (opener, next) {
+task UV-FS-Read (opener, next) {
     defer {
         resume next(nil)
         resume opener(nil)
@@ -131,7 +138,7 @@ task UV_FS_Read (opener, next) {
     }
 }
 
-task UV_FS_Write (opener, prev) {
+task UV-FS-Write (opener, prev) {
     var fd = yield()
 
     var req = `:pointer malloc(sizeof(uv_fs_t))`

@@ -1,16 +1,16 @@
 ^["uv.ceu"]
 
-spawn UV_Loop()
+spawn UV-Loop()
 
-var reader_opener = coroutine(UV_FS_Open)
-var writer_opener = coroutine(UV_FS_Open)
-var reader = coroutine(UV_FS_Read)
-var writer = coroutine(UV_FS_Write)
+var reader-opener = coroutine(UV-FS-Open)
+var writer-opener = coroutine(UV-FS-Open)
+var reader = coroutine(UV-FS-Read)
+var writer = coroutine(UV-FS-Write)
 
-resume reader_opener("ceu/01-fs-cat.txt", `:number O_RDONLY`, reader)
-resume reader(reader_opener, writer)
+resume reader-opener("ceu/01-fs-cat.txt", :O.RDONLY, reader)
+resume reader(reader-opener, writer)
 
-resume writer_opener("ceu/03-fs-cat.out", `:number O_WRONLY|O_CREAT|O_TRUNC`, writer)
-resume writer(writer_opener, reader)
+resume writer-opener("ceu/03-fs-cat.out", tag-or(:O.WRONLY,tag-or(:O.CREAT,:O.TRUNC)), writer)
+resume writer(writer-opener, reader)
 
-;;spawn UV_FS_Read("ceu/01-fs-cat.txt") >|> spawn UV_FS_Write("ceu/03-fs-cat.out")
+;;spawn UV-FS-Read("ceu/01-fs-cat.txt") >|> spawn UV-FS-Write("ceu/03-fs-cat.out")
