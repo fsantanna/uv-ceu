@@ -49,10 +49,35 @@ task FS-Read (filename) {
     }
 }
 
-var read   = spawn FS-Read("ceu/01-fs-cat.txt")
-var split  = spawn Split(read)
-var number = spawn Number(split)
-var take   = spawn Take(10, number)
-while in :coro take, l {
-    println(l)
+do { ;; PULL
+    var read1   = spawn FS-Read("ceu/01-fs-cat.txt")
+    var split1  = spawn Split(read1)
+    var number1 = spawn Number(split1)
+    var take1   = spawn Take(10, number1)
+    while in :coro take1, l {
+        println(l)
+    }
+}
+
+do { ;; PUSH
+    var read2   = spawn FS-Read("ceu/01-fs-cat.txt")
+    var split2  = spawn Split(read2)
+    var number2 = spawn Number(split2)
+    var take2   = spawn Take(10, number2)
+
+    task Show () {
+        var line = yield()
+        while line {
+            println(line)
+            set line = yield()
+        }
+    }
+
+    task Send (iter, next) {
+        while in :coro iter, v {
+            resume next(v)
+        }
+    }
+
+    spawn Send(take2, spawn Show())
 }
