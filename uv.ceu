@@ -82,7 +82,8 @@ task UV-FS-Open (filename, mode, next) {
     yield()
 }
 
-task UV-FS-Read (opener, next) {
+task UV-FS-Read (filename, next) {
+    var open = spawn UV-FS-Open(filename, :O.RDONLY, task)
     var fd = yield()
 
     var req = `:pointer malloc(sizeof(uv_fs_t))`
@@ -132,10 +133,11 @@ task UV-FS-Read (opener, next) {
         n2 == 0
     }
     resume next(nil)
-    resume opener(nil)
+    resume open(nil)
 }
 
-task UV-FS-Write (opener, prev) {
+task UV-FS-Write (filename, prev) {
+    var open = spawn UV-FS-Open(filename, tag-or(:O.WRONLY,tag-or(:O.CREAT,:O.TRUNC)), task)
     var fd = yield()
 
     var req = `:pointer malloc(sizeof(uv_fs_t))`
@@ -172,5 +174,5 @@ task UV-FS-Write (opener, prev) {
         resume prev(:awake)
         set buf = yield()
     }
-    resume opener(nil)
+    resume open(nil)
 }
