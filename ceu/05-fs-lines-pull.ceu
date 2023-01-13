@@ -1,0 +1,58 @@
+;;;
+$ ceu ceu/05-fs-lines-pull.ceu -cc "-g -lm"
+;;;
+
+task Split (chars) {
+    yield()
+    var line = ""
+    while in :coro chars, c {
+        if c == '\n' {
+            yield(move(line))
+            set line = ""
+        } else {
+            set line[+] = c
+        }
+    }
+}
+
+task Number (lines) {
+    yield()
+    var i = 1
+    while in :coro lines, l {
+        yield(tostring(i) ++ (": " ++ l))
+        set i = i + 1
+    }
+}
+
+task Take (n, lines) {
+    yield()
+    var i = 0
+    while i < n {
+        yield(resume lines())
+        set i = i + 1
+    }
+}
+
+;;spawn Show() <|< spawn Number(show) <|< spawn Split(number) <|< spawn UV-FS-Read(f,split)
+;;addNumbers(extractNumbers(tokenize(CHARS)))
+
+task FS-Read (filename) {
+    var f = `:pointer fopen($filename.Dyn->Ncast.Vector.buf, "r")`
+    defer {
+        `fclose($f.Pointer);`
+    }
+    yield()
+    until {
+        var c = `:char fgetc($f.Pointer)`
+        yield(c)
+        c == `:char EOF`
+    }
+}
+
+var read   = spawn FS-Read("ceu/01-fs-cat.txt")
+var split  = spawn Split(read)
+var number = spawn Number(split)
+var take   = spawn Take(10, number)
+while in :coro take, l {
+    println(l)
+}
