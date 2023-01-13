@@ -1,0 +1,67 @@
+^["uv.ceu"]
+
+spawn UV-Loop()
+
+task Split (next) {
+    var line = ""
+    var tmp = yield()
+    while tmp {
+        while in :vector tmp, (_,c) {
+            if c == '\n' {
+                resume next(move(line))
+                set line = ""
+            } else {
+                set line[+] = c
+            }
+        }
+        set tmp = yield()
+    }
+}
+
+task Number (next) {
+    var line = yield()
+    var i = 1
+    while line {
+        resume next(tostring(i) ++ (": " ++ line))
+        set line = yield()
+        set i = i + 1
+    }
+}
+
+task Show () {
+    var line = yield()
+    while line {
+        println(line)
+        set line = yield()
+    }
+}
+
+do {
+    var open = coroutine(UV-FS-Open)
+    var read = coroutine(UV-FS-Read)
+    var split = coroutine(Split)
+    var number = coroutine(Number)
+    var show = coroutine(Show)
+
+    resume open("ceu/01-fs-cat.txt", :O.RDONLY, read)
+    resume read(open, split)
+    resume split(number)
+    resume number(show)
+}
+
+println("-=-=-=-=-=-=-=-")
+
+do {
+    var open = coroutine(UV-FS-Open)
+    var read = coroutine(UV-FS-Read)
+    var split = coroutine(Split)
+    var number = coroutine(Number)
+    var show = coroutine(Show)
+
+    resume open("ceu/01-fs-cat.txt", :O.RDONLY, read)
+    resume read(open, split)
+    resume split(number)
+    resume number(show)
+}
+
+;;spawn UV-FS-Read("ceu/01-fs-cat.txt") >|> spawn UV-FS-Write("ceu/03-fs-cat.out")
