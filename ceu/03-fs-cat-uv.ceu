@@ -1,7 +1,5 @@
 ^["uv.ceu"]
 
-spawn UV-Loop()
-
 var read  = coroutine(UV-FS-Read)
 var write = coroutine(UV-FS-Write)
 
@@ -9,3 +7,5 @@ resume read("ceu/01-fs-cat.txt", write)
 resume write("ceu/03-fs-cat.out", read)
 
 ;;spawn UV-FS-Read("ceu/01-fs-cat.txt") >|> spawn UV-FS-Write("ceu/03-fs-cat.out")
+
+UV-Loop()

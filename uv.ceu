@@ -1,33 +1,18 @@
 do {
     ```:pre
-    void ceu_uv_fs_open_cb (uv_fs_t* req) {
-        CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
-        CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
-        CEU_Value fd = { CEU_VALUE_NUMBER, { .Number=req->result } };
-        CEU_Value* args[] = { &fd };
-        assert(CEU_RET_THROW != frame->proto->f(frame, NULL, 1, args));
-    }
-
-    void ceu_uv_fs_read_cb (uv_fs_t* req) {
-        CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
-        CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
-        CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
-        CEU_Value* args[] = { &n };
-        int ret = frame->proto->f(frame, NULL, 1, args);
-        if (ret == CEU_RET_THROW) {
-            ceu_error_list_print();
+    void ceu_uv_fs_cb (uv_fs_t* req) {
+        if (req->data != NULL) {
+            CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+            CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+            CEU_Value fd = { CEU_VALUE_NUMBER, { .Number=req->result } };
+            CEU_Value* args[] = { &fd };
+            int ret = frame->proto->f(frame, NULL, 1, args);
+            if (ret == CEU_RET_THROW) {
+                ceu_error_list_print();
+            }
         }
-    }
-
-    void ceu_uv_fs_write_cb (uv_fs_t* req) {
-        CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
-        CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
-        CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
-        CEU_Value* args[] = { &n };
-        int ret = frame->proto->f(frame, NULL, 1, args);
-        if (ret == CEU_RET_THROW) {
-            ceu_error_list_print();
-        }
+        uv_fs_req_cleanup(req);
+        free(req);
     }
     ```
 }
@@ -41,32 +26,30 @@ enum {
 
 var loop = `:pointer uv_default_loop()`
 
-task UV-Loop () {
-    defer {
-        `uv_run($loop.Pointer, UV_RUN_DEFAULT);`
-        `uv_loop_close($loop.Pointer);`
-    }
-    await false
+func UV-Loop () {
+    ```
+    uv_run($loop.Pointer, UV_RUN_DEFAULT);
+    uv_loop_close($loop.Pointer);
+    ```
 }
 
 task UV-FS-Open (filename, mode, next) {
-    var req = `:pointer malloc(sizeof(uv_fs_t))`
-    `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
-    defer {
-        ```
-        uv_fs_req_cleanup($req.Pointer);
-        free($req.Pointer);
-        ```
-    }
-
     var fd = do {
+        var req = `:pointer malloc(sizeof(uv_fs_t))`
+        `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
+        defer {
+            ```
+            ((uv_req_t*)$req.Pointer)->data = NULL;
+            uv_cancel($req.Pointer);
+            ```
+        }
         assert(0 == `:number uv_fs_open (
             $loop.Pointer,
             $req.Pointer,
             $filename.Dyn->Ncast.Vector.buf,
             $mode.Tag,
             S_IRUSR | S_IWUSR,
-            ceu_uv_fs_open_cb
+            ceu_uv_fs_cb
         )`)
         yield()
     }
@@ -86,15 +69,6 @@ task UV-FS-Read (filename, next) {
     var open = spawn UV-FS-Open(filename, :O.RDONLY, task)
     var fd = yield()
 
-    var req = `:pointer malloc(sizeof(uv_fs_t))`
-    `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
-    defer {
-        ```
-        uv_fs_req_cleanup($req.Pointer);
-        free($req.Pointer);
-        ```
-    }
-
     var iov = `:pointer malloc(sizeof(uv_buf_t))`
     defer {
         `free($iov.Pointer);`
@@ -107,13 +81,22 @@ task UV-FS-Read (filename, next) {
     `*((uv_buf_t*)ceu_mem->iov.Pointer) = uv_buf_init($buf.Dyn->Ncast.Vector.buf,1024);`
 
     until {
+        var req = `:pointer malloc(sizeof(uv_fs_t))`
+        `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
+        defer {
+            ```
+            ((uv_req_t*)$req.Pointer)->data = NULL;
+            uv_cancel($req.Pointer);
+            ```
+        }
+
         var n1 = `:number uv_fs_read (
             $loop.Pointer,
             $req.Pointer,
             $fd.Number,
             $iov.Pointer,
             1, -1,
-            ceu_uv_fs_read_cb
+            ceu_uv_fs_cb
         )`
         assert(n1 == 0)
 
@@ -140,23 +123,24 @@ task UV-FS-Write (filename, prev) {
     var open = spawn UV-FS-Open(filename, tag-or(:O.WRONLY,tag-or(:O.CREAT,:O.TRUNC)), task)
     var fd = yield()
 
-    var req = `:pointer malloc(sizeof(uv_fs_t))`
-    `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
+    var iov = `:pointer malloc(sizeof(uv_buf_t))`
     defer {
-        ```
-        uv_fs_req_cleanup($req.Pointer);
-        free($req.Pointer);
-        ```
+        `free($iov.Pointer);`
     }
 
     var buf = yield()
     while buf {
-        var iov = `:pointer malloc(sizeof(uv_buf_t))`
-        defer {
-            `free($iov.Pointer);`
-        }
         var len = #buf
         `*((uv_buf_t*)ceu_mem->iov.Pointer) = uv_buf_init($buf.Dyn->Ncast.Vector.buf,$len.Number);`
+
+        var req = `:pointer malloc(sizeof(uv_fs_t))`
+        `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
+        defer {
+            ```
+            ((uv_req_t*)$req.Pointer)->data = NULL;
+            uv_cancel($req.Pointer);
+            ```
+        }
 
         var n1 = `:number uv_fs_write (
             $loop.Pointer,
@@ -164,7 +148,7 @@ task UV-FS-Write (filename, prev) {
             $fd.Number,
             $iov.Pointer,
             1, -1,
-            ceu_uv_fs_write_cb
+            ceu_uv_fs_cb
         )`
         assert(n1 == 0)
 

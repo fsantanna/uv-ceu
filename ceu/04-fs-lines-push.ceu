@@ -1,7 +1,5 @@
 ^["uv.ceu"]
 
-spawn UV-Loop()
-
 task Split (next) {
     var line = ""
     var tmp = yield()
@@ -28,6 +26,15 @@ task Number (next) {
     }
 }
 
+task Take (n, next) {
+    var i = 0
+    while i < n {
+        resume next(yield())
+        set i = i + 1
+    }
+    throw :done
+}
+
 task Show () {
     var line = yield()
     while line {
@@ -38,7 +45,15 @@ task Show () {
 
 ;;spawn Show() <|< spawn Number(show) <|< spawn Split(number) <|< spawn UV-FS-Read(f,split)
 
-var show   = spawn Show()
-var number = spawn Number(show)
-var split  = spawn Split(number)
-var read   = spawn UV-FS-Read("ceu/01-fs-cat.txt", split)
+spawn {
+    catch :done {
+        var show   = spawn Show()
+        var take   = spawn Take(10, show)
+        var number = spawn Number(take)
+        var split  = spawn Split(number)
+        var read   = spawn UV-FS-Read("ceu/01-fs-cat.txt", split)
+        yield()
+    }
+}
+
+UV-Loop()

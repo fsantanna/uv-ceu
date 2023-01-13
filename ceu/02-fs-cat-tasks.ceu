@@ -31,9 +31,6 @@ void ceu_uv_fs_write_cb (uv_fs_t* req) {
 ```
 
 var loop = `:pointer uv_default_loop()`
-defer {
-    `uv_loop_close($loop.Pointer);`
-}
 
 task UV_FS_Open (filename, mode, next) {
     var req = `:pointer malloc(sizeof(uv_fs_t))`
@@ -196,4 +193,7 @@ resume reader(reader_opener, writer)
 resume writer_opener("ceu/02-fs-cat.out", `:number O_WRONLY|O_CREAT|O_TRUNC`, writer)
 resume writer(writer_opener, reader)
 
-;;`uv_run($loop.Pointer, UV_RUN_DEFAULT);`
+```
+uv_run($loop.Pointer, UV_RUN_DEFAULT);
+uv_loop_close($loop.Pointer);
+```
