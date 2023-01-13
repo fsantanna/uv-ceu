@@ -132,6 +132,10 @@ println(:cmd, cmd)
 }
 
 task UV_FS_Write (opener, prev) {
+    defer {
+        resume opener(nil)
+    }
+
     var fd = yield()
 println(:fdwrite, fd)
 
@@ -173,6 +177,14 @@ println(:write, #buf, `:number $len.Number`)
     }
 }
 
+spawn {
+    defer {
+        `uv_run($loop.Pointer, UV_RUN_DEFAULT);`
+        `uv_loop_close($loop.Pointer);`
+    }
+    await false
+}
+
 var reader_opener = coroutine(UV_FS_Open)
 var writer_opener = coroutine(UV_FS_Open)
 var reader = coroutine(UV_FS_Read)
@@ -184,4 +196,4 @@ resume reader(reader_opener, writer)
 resume writer_opener("ceu/02-fs-cat.out", `:number O_WRONLY|O_CREAT|O_TRUNC`, writer)
 resume writer(writer_opener, reader)
 
-`uv_run($loop.Pointer, UV_RUN_DEFAULT);`
+;;`uv_run($loop.Pointer, UV_RUN_DEFAULT);`
