@@ -1,38 +1,45 @@
-```:pre
-void ceu_uv_fs_open_cb (uv_fs_t* req) {
-    CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
-    CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
-    CEU_Value fd = { CEU_VALUE_NUMBER, { .Number=req->result } };
-    CEU_Value* args[] = { &fd };
-    assert(CEU_RET_THROW != frame->proto->f(frame, NULL, 1, args));
-}
-
-void ceu_uv_fs_read_cb (uv_fs_t* req) {
-    CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
-    CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
-    CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
-    CEU_Value* args[] = { &n };
-    int ret = frame->proto->f(frame, NULL, 1, args);
-    if (ret == CEU_RET_THROW) {
-        ceu_error_list_print();
+do {
+    ```:pre
+    void ceu_uv_fs_open_cb (uv_fs_t* req) {
+        CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+        CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+        CEU_Value fd = { CEU_VALUE_NUMBER, { .Number=req->result } };
+        CEU_Value* args[] = { &fd };
+        assert(CEU_RET_THROW != frame->proto->f(frame, NULL, 1, args));
     }
-}
 
-void ceu_uv_fs_write_cb (uv_fs_t* req) {
-    CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
-    CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
-    CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
-    CEU_Value* args[] = { &n };
-    int ret = frame->proto->f(frame, NULL, 1, args);
-    if (ret == CEU_RET_THROW) {
-        ceu_error_list_print();
+    void ceu_uv_fs_read_cb (uv_fs_t* req) {
+        CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+        CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+        CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
+        CEU_Value* args[] = { &n };
+        int ret = frame->proto->f(frame, NULL, 1, args);
+        if (ret == CEU_RET_THROW) {
+            ceu_error_list_print();
+        }
     }
+
+    void ceu_uv_fs_write_cb (uv_fs_t* req) {
+        CEU_Block block = { 1, 0, NULL, {0,0,NULL,NULL}, NULL };
+        CEU_Frame* frame = ((CEU_Dyn*)req->data)->Bcast.Coro.frame;
+        CEU_Value n = { CEU_VALUE_NUMBER, { .Number=req->result } };
+        CEU_Value* args[] = { &n };
+        int ret = frame->proto->f(frame, NULL, 1, args);
+        if (ret == CEU_RET_THROW) {
+            ceu_error_list_print();
+        }
+    }
+    ```
 }
-```
 
 var loop = `:pointer uv_default_loop()`
-defer {
-    `uv_loop_close($loop.Pointer);`
+
+task UV_Loop () {
+    defer {
+        `uv_run($loop.Pointer, UV_RUN_DEFAULT);`
+        `uv_loop_close($loop.Pointer);`
+    }
+    await false
 }
 
 task UV_FS_Open (filename, mode, next) {
@@ -56,7 +63,6 @@ task UV_FS_Open (filename, mode, next) {
         )`)
         yield()
     }
-println(:fd, fd)
     assert(fd >= 0)
     defer {
         ``` // synchronous
@@ -76,7 +82,6 @@ task UV_FS_Read (opener, next) {
     }
 
     var fd = yield()
-println(:fdread, fd)
 
     var req = `:pointer malloc(sizeof(uv_fs_t))`
     `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
@@ -110,18 +115,13 @@ println(:fdread, fd)
         assert(n1 == 0)
 
         var n2 = yield()
-println(:n2, n2)
         assert(n2 >= 0)
         if n2 > 0 {
             ```
             $buf.Dyn->Ncast.Vector.its = $n2.Number;
             $buf.Dyn->Ncast.Vector.buf[(int)$n2.Number] = '\0';
             ```
-println(:read, n2, #buf)
-;;println(:read, n2, #buf, buf)
-;;`fflush(stdout);`
             var cmd = resume next(move(buf))
-println(:cmd, cmd)
             if cmd == :await {
                 set cmd = yield()
                 assert(cmd == :awake)
@@ -133,7 +133,6 @@ println(:cmd, cmd)
 
 task UV_FS_Write (opener, prev) {
     var fd = yield()
-println(:fdwrite, fd)
 
     var req = `:pointer malloc(sizeof(uv_fs_t))`
     `((uv_req_t*)$req.Pointer)->data = ceu_coro;`
@@ -145,14 +144,12 @@ println(:fdwrite, fd)
     }
 
     var buf = yield()
-println(:write, #buf)
     while buf {
         var iov = `:pointer malloc(sizeof(uv_buf_t))`
         defer {
             `free($iov.Pointer);`
         }
         var len = #buf
-println(:write, #buf, `:number $len.Number`)
         `*((uv_buf_t*)ceu_mem->iov.Pointer) = uv_buf_init($buf.Dyn->Ncast.Vector.buf,$len.Number);`
 
         var n1 = `:number uv_fs_write (
@@ -172,16 +169,3 @@ println(:write, #buf, `:number $len.Number`)
         set buf = yield()
     }
 }
-
-var reader_opener = coroutine(UV_FS_Open)
-var writer_opener = coroutine(UV_FS_Open)
-var reader = coroutine(UV_FS_Read)
-var writer = coroutine(UV_FS_Write)
-
-resume reader_opener("ceu/01-fs-cat.txt", `:number O_RDONLY`, reader)
-resume reader(reader_opener, writer)
-
-resume writer_opener("ceu/02-fs-cat.out", `:number O_WRONLY|O_CREAT|O_TRUNC`, writer)
-resume writer(writer_opener, reader)
-
-`uv_run($loop.Pointer, UV_RUN_DEFAULT);`

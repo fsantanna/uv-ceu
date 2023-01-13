@@ -2,10 +2,15 @@
 
 spawn UV_Loop()
 
+var reader_opener = coroutine(UV_FS_Open)
+var writer_opener = coroutine(UV_FS_Open)
 var reader = coroutine(UV_FS_Read)
 var writer = coroutine(UV_FS_Write)
 
-resume reader("ceu/01-fs-cat.txt", nil, writer)
-resume writer("ceu/03-fs-cat.out", reader, nil)
+resume reader_opener("ceu/01-fs-cat.txt", `:number O_RDONLY`, reader)
+resume reader(reader_opener, writer)
+
+resume writer_opener("ceu/03-fs-cat.out", `:number O_WRONLY|O_CREAT|O_TRUNC`, writer)
+resume writer(writer_opener, reader)
 
 ;;spawn UV_FS_Read("ceu/01-fs-cat.txt") >|> spawn UV_FS_Write("ceu/03-fs-cat.out")
