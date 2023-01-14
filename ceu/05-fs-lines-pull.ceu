@@ -26,10 +26,8 @@ task Number (lines) {
 
 task Take (n, lines) {
     yield()
-    var i = 0
-    while i < n {
+    while in [1 -> n] {
         yield(resume lines())
-        set i = i + 1
     }
 }
 

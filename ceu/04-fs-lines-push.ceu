@@ -27,10 +27,8 @@ task Number (next) {
 }
 
 task Take (n, next) {
-    var i = 0
-    while i < n {
+    while in [1 -> n] {
         resume next(yield())
-        set i = i + 1
     }
     throw :done
 }
